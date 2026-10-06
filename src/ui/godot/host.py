@@ -6,6 +6,7 @@ import asyncio
 import os
 import socket
 import subprocess
+import sys
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -15,17 +16,60 @@ from src.ui.godot.protocol import decode_messages, encode_message
 
 logger = get_logger()
 
-PROJECT_DIR = Path(__file__).resolve().parents[3] / "godot_ui"
 MessageHandler = Callable[[dict], None]
 
 
+def _search_roots() -> list[Path]:
+    """原始碼樹，或 PyInstaller 解開後資料所在的目錄."""
+    roots: list[Path] = []
+    if getattr(sys, "frozen", False):
+        exe = Path(sys.executable).resolve()
+        roots.append(exe.parent)
+        roots.append(exe.parent / "_internal")
+        contents = exe.parent.parent
+        roots.extend(
+            [
+                contents / "Resources",
+                contents / "Frameworks",
+                contents / "MacOS",
+            ]
+        )
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            roots.append(Path(meipass))
+    roots.append(Path(__file__).resolve().parents[3])
+    return roots
+
+
+def godot_project_dir() -> Path:
+    for root in _search_roots():
+        candidate = root / "godot_ui"
+        if (candidate / "project.godot").is_file():
+            return candidate
+    return Path(__file__).resolve().parents[3] / "godot_ui"
+
+
+PROJECT_DIR = godot_project_dir()
+
+
 def find_godot() -> str | None:
-    candidates = [
-        os.environ.get("GODOT_BIN", ""),
-        "/Applications/Godot.app/Contents/MacOS/Godot",
-        os.path.expanduser("~/Applications/Godot.app/Contents/MacOS/Godot"),
-        "/Applications/Godot_mono.app/Contents/MacOS/Godot",
-    ]
+    bundled: list[Path] = []
+    for root in _search_roots():
+        bundled.extend(
+            [
+                root / "vendor" / "godot" / "Godot.app" / "Contents" / "MacOS" / "Godot",
+                root / "vendor" / "godot" / "Godot.exe",
+                root / "vendor" / "godot" / "godot",
+            ]
+        )
+    candidates = [os.environ.get("GODOT_BIN", ""), *[str(path) for path in bundled]]
+    candidates.extend(
+        [
+            "/Applications/Godot.app/Contents/MacOS/Godot",
+            os.path.expanduser("~/Applications/Godot.app/Contents/MacOS/Godot"),
+            "/Applications/Godot_mono.app/Contents/MacOS/Godot",
+        ]
+    )
     for candidate in candidates:
         if candidate and Path(candidate).is_file():
             return candidate

@@ -3,6 +3,7 @@ name: Build & Upload Release Assets
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -145,8 +146,27 @@ jobs:
         id: version
         shell: bash
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(python3 -c "import json; print(json.load(open('build.json', encoding='utf-8'))['version'])")
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "打包版本 $VERSION"
+
+      - name: Bundle Godot editor
+        shell: bash
+        run: |
+          chmod +x scripts/bundle_godot.sh
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            ./scripts/bundle_godot.sh mac
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            ./scripts/bundle_godot.sh win
+          elif [ "$(uname -m)" = "aarch64" ]; then
+            ./scripts/bundle_godot.sh linux arm64
+          else
+            ./scripts/bundle_godot.sh linux x64
+          fi
 
       - name: Verify Inno Setup (Windows)
         if: runner.os == 'Windows'
@@ -291,7 +311,15 @@ jobs:
           done
           ls -lh dist/release
 
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DoroPet-${{ matrix.platform }}
+          path: dist/release/*
+          if-no-files-found: error
+
       - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/release/*

@@ -35,8 +35,9 @@ xiaozhi.spec
 .unifypy
 xiaozhi-desktop/
 
-# Godot 匯入快取
+# Godot 匯入快取與 CI 下載的編輯器
 godot_ui/.godot/
+vendor/godot/
 chakra-qml/
 py-xiaozhi/
 
