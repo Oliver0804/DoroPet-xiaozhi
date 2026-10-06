@@ -11,9 +11,11 @@ class MainWindowController:
         self,
         main_model: MainModel | None = None,
         emotion_service: EmotionService | None = None,
+        live2d=None,
     ) -> None:
         self._main_model = main_model or MainModel()
         self._emotion_service = emotion_service or EmotionService()
+        self._live2d = live2d
 
     @property
     def main_model(self) -> MainModel:
@@ -26,6 +28,7 @@ class MainWindowController:
     def set_neutral_emotion(self) -> None:
         url = self._emotion_service.get_emotion_url("neutral")
         self._main_model.set_emotion_url(url)
+        self._push_live2d("neutral")
 
     def set_chat_text(self, text: str) -> None:
         self._main_model.set_chat_text(text)
@@ -36,6 +39,14 @@ class MainWindowController:
     def set_emotion(self, emotion: str) -> None:
         url = self._emotion_service.get_emotion_url(emotion)
         self._main_model.set_emotion_url(url)
+        self._push_live2d(emotion)
+
+    def _push_live2d(self, emotion: str) -> None:
+        if self._live2d is None:
+            return
+        setter = getattr(self._live2d, "set_emotion", None)
+        if callable(setter):
+            setter(emotion)
 
     def set_status(self, status: str, connected: bool = True) -> None:
         self._main_model.set_status(status, connected)

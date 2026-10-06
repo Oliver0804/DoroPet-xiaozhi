@@ -947,14 +947,14 @@ async def test_session_actions_owns_auto_mode():
     presenter = UiPresenter(vp)
     session = SessionActions(_Ctx(), _Cmd(), presenter)
 
+    assert session.auto_mode is True
+    await session.auto_toggle()
     assert session.auto_mode is False
+    assert vp.auto_modes == [False]
+    assert vp.is_auto_mode() is False
     await session.auto_toggle()
     assert session.auto_mode is True
-    assert vp.auto_modes == [True]
-    assert vp.is_auto_mode() is True
-    await session.auto_toggle()
-    assert session.auto_mode is False
-    assert vp.auto_modes == [True, False]
+    assert vp.auto_modes == [False, True]
 
 
 @pytest.mark.asyncio
@@ -1007,12 +1007,12 @@ async def test_auto_session_button_start_stop():
 
     await session.auto_session_toggle()
     assert session.auto_session_active is True
-    assert vp.buttons[-1] == "停止对话"
+    assert vp.buttons[-1] == "停止對話"
     assert starts
 
     await session.auto_session_toggle()
     assert session.auto_session_active is False
-    assert vp.buttons[-1] == "开始对话"
+    assert vp.buttons[-1] == "開始對話"
     assert "stop" in stops
 
 
@@ -1056,7 +1056,8 @@ async def test_send_text_from_idle_starts_listen_then_detect():
             return C()
 
     session = SessionActions(_Ctx(), _Cmd(), UiPresenter(_FakeViewport()))
-    # 手动模式空闲发文本
+    # 这个例子测的是手动模式。預設已改成連續對話。
+    session._auto_mode = False
     await session.send_text("播放歌曲")
     assert order[0] == "connect"
     assert order[1] == ("listen", ListeningMode.MANUAL)

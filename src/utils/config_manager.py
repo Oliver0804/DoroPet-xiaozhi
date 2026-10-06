@@ -115,6 +115,11 @@ class ConfigManager:
                 "description": "显示/隐藏窗口",
             },
         },
+        "DISCORD": {
+            "ENABLED": False,
+            "BOT_TOKEN": "",
+            "URL": "ws://127.0.0.1:8765",
+        },
         "AEC_OPTIONS": {
             "ENABLED": False,
             # AEC 在位时 TTS 不暂停音乐，混音闪避并行播放（引擎旁路则自动回退暂停）
@@ -149,6 +154,15 @@ class ConfigManager:
         # MCP 工具暴露（黑名单：不出现在 tools/list，call 亦拒绝）
         "MCP_TOOLS": {
             "DISABLED": [],  # 如 ["music_player.stop", "self.application.launch"]
+        },
+        # 表情区用 Live2D 替换 GIF。MODEL_PATH 为空时自动找
+        # assets/live2d 或本机 DoroPet 的 Doro.model3.json。
+        "LIVE2D": {
+            "ENABLED": True,
+            "MODEL_PATH": "",
+            "SCALE": 0.9,
+            "OFFSET_X": 0.0,
+            "OFFSET_Y": 0.08,
         },
         "AUDIO_DEVICES": {
             "input_device_id": None,

@@ -90,6 +90,12 @@ tui = [
     "textual>=0.80.0",
 ]
 
+# Live2D 脸。官方 wheel 是 cp311-abi3，Python 3.10 装不上。
+# uv sync --extra gui --extra live2d
+live2d = [
+    "live2d-py>=1.0.0; python_version >= '3.11'",
+]
+
 # 注意：树莓派 CSI 不要用 pip extra 装 picamera2。
 # picamera2 依赖 python-prctl（仅 Linux），在 macOS 上 uv sync/run 会直接编译失败。
 # Pi Bookworm 请用系统包：sudo apt install python3-picamera2

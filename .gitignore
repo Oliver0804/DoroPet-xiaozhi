@@ -34,6 +34,9 @@ xiaozhi.spec
 
 .unifypy
 xiaozhi-desktop/
+
+# Godot 匯入快取
+godot_ui/.godot/
 chakra-qml/
 py-xiaozhi/
 
@@ -45,3 +48,6 @@ py-xiaozhi/
 
 # 项目分析报告（本地查看）
 reports/
+# Discord 橋的依賴與除錯錄音
+discord_bridge/node_modules/
+discord_bridge/debug/

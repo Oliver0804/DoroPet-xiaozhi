@@ -26,8 +26,9 @@ class SessionActions:
         self._cmd = cmd
         self._ui = presenter
         self._manual_recording = False
-        self._auto_mode = False
-        # 自动模式下是否已经开始对话（按钮显示「停止对话」）
+        # 預設連續對話：講完會再聽，不必每句都按一次
+        self._auto_mode = True
+        # 自动模式下是否已经開始對話（按钮显示「停止對話」）
         self._auto_session_active = False
 
     @property
@@ -58,15 +59,15 @@ class SessionActions:
         if state != DeviceState.LISTENING and self._manual_recording:
             self._manual_recording = False
             if not self._auto_mode:
-                self._ui.set_button_text("按住后说话")
+                self._ui.set_button_text("按住後說話")
 
         if self._auto_mode and state == DeviceState.IDLE and self._auto_session_active:
             self._auto_session_active = False
-            self._ui.set_button_text("开始对话")
+            self._ui.set_button_text("開始對話")
         elif self._auto_mode and state in (DeviceState.LISTENING, DeviceState.SPEAKING):
             if not self._auto_session_active:
                 self._auto_session_active = True
-            self._ui.set_button_text("停止对话")
+            self._ui.set_button_text("停止對話")
 
     async def request_shutdown(self, _data=None) -> None:
         self._cmd.request_shutdown()
@@ -88,7 +89,7 @@ class SessionActions:
         await self._cmd.start_listening(mode)
         if self._auto_mode:
             self._auto_session_active = True
-            self._ui.set_button_text("停止对话")
+            self._ui.set_button_text("停止對話")
         logger.debug(f"已开启 listen 会话: mode={mode}")
         return True
 
@@ -130,13 +131,13 @@ class SessionActions:
         if not self._manual_recording:
             self._manual_recording = True
             logger.debug("手动模式：开始录音")
-            self._ui.set_button_text("发送")
+            self._ui.set_button_text("送出")
             await self._cmd.connect_protocol()
             await self._cmd.start_listening(ListeningMode.MANUAL)
         else:
             self._manual_recording = False
             logger.debug("手动模式：停止录音并发送")
-            self._ui.set_button_text("按住后说话")
+            self._ui.set_button_text("按住後說話")
             await self._cmd.stop_listening()
 
     async def auto_toggle(self, _data=None) -> None:
@@ -147,17 +148,22 @@ class SessionActions:
         if self._auto_mode and self._manual_recording:
             self._manual_recording = False
         self._ui.set_auto_mode(self._auto_mode)
+        if self._auto_mode:
+            if not self._auto_session_active:
+                self._ui.set_button_text("開始對話")
+        else:
+            self._ui.set_button_text("按住後說話")
         logger.debug(f"模式切换: {'自动' if self._auto_mode else '手动'}")
 
     async def auto_session_toggle(self, _data=None) -> None:
-        # 主按钮：开始对话 / 停止对话
+        # 主按钮：開始對話 / 停止對話
         if self._auto_session_active or self._ctx.is_listening() or self._ctx.is_speaking():
             await self._stop_auto_session()
             return
 
         if not await self._ensure_listen_session():
             return
-        logger.debug("自动模式：开始对话")
+        logger.debug("自动模式：開始對話")
 
     async def _stop_auto_session(self) -> None:
         # 先 stop 清 keep_listening，再 abort，免得打断后又被续听拉回去
@@ -169,8 +175,8 @@ class SessionActions:
                 await self._cmd.stop_listening()
         finally:
             self._auto_session_active = False
-            self._ui.set_button_text("开始对话")
-            logger.debug("自动模式：停止对话")
+            self._ui.set_button_text("開始對話")
+            logger.debug("自动模式：停止對話")
 
     async def abort(self, _data=None) -> None:
         await self._cmd.abort_speaking(AbortReason.USER_INTERRUPTION)

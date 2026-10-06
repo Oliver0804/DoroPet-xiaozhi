@@ -117,6 +117,23 @@ class TestMixing:
     def test_both_empty_returns_none(self, codec):
         assert codec._pull_mixed(codec._mix_chunk) is None
 
+    def test_tts_pcm_listener_sees_tts_not_music(self, codec):
+        seen = []
+        listener = seen.append
+        codec.add_tts_pcm_listener(listener)
+        n = codec._mix_chunk
+        codec._music_fifo.push(np.full(n, 0.4, dtype=np.float32))
+        codec._pull_mixed(n)
+        assert seen == []
+        codec._tts_fifo.push(np.full(n, 0.5, dtype=np.float32))
+        codec._pull_mixed(n)
+        assert len(seen) == 1
+        assert np.allclose(seen[0], 0.5)
+        codec.remove_tts_pcm_listener(listener)
+        codec._tts_fifo.push(np.full(n, 0.5, dtype=np.float32))
+        codec._pull_mixed(n)
+        assert len(seen) == 1
+
     def test_clear_semantics_are_independent(self, codec):
         n = codec._mix_chunk
         codec._tts_fifo.push(np.full(n, 0.5, dtype=np.float32))

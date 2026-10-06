@@ -66,13 +66,41 @@ AppWindow {
                         }
                     }
 
-                    // 表情显示区域
+                    // 表情显示区域。Live2D 就绪后藏起 GIF，由 OpenGL 子窗口盖在这块上。
                     Item {
+                        id: emotionHost
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        Layout.minimumHeight: 80
+                        Layout.minimumHeight: 160
 
                         property string currentEmotionUrl: (mainModel && mainModel.emotionUrl) ? mainModel.emotionUrl : ""
+                        property bool live2dOn: live2dBridge && live2dBridge.ready
+
+                        function reportGeometry() {
+                            if (!live2dBridge)
+                                return
+                            var point = mapToItem(null, 0, 0)
+                            live2dBridge.setViewport(point.x, point.y, width, height)
+                        }
+
+                        onXChanged: reportGeometry()
+                        onYChanged: reportGeometry()
+                        onWidthChanged: reportGeometry()
+                        onHeightChanged: reportGeometry()
+                        Component.onCompleted: Qt.callLater(reportGeometry)
+
+                        Connections {
+                            target: live2dBridge
+                            function onReadyChanged() { emotionHost.reportGeometry() }
+                        }
+
+                        // attach() 发生在 QML 完成之后，所以要持续回报矩形，不能只在 onCompleted 报一次
+                        Timer {
+                            interval: 200
+                            repeat: true
+                            running: true
+                            onTriggered: emotionHost.reportGeometry()
+                        }
 
                         AnimatedImage {
                             anchors.centerIn: parent
@@ -81,14 +109,14 @@ AppWindow {
                             source: parent.currentEmotionUrl
                             fillMode: Image.PreserveAspectFit
                             playing: true
-                            visible: parent.currentEmotionUrl.length > 0 && parent.currentEmotionUrl.indexOf("file://") === 0
+                            visible: !parent.live2dOn && parent.currentEmotionUrl.length > 0 && parent.currentEmotionUrl.indexOf("file://") === 0
                         }
 
                         Text {
                             anchors.centerIn: parent
                             text: parent.currentEmotionUrl.indexOf("file://") !== 0 ? (parent.currentEmotionUrl || "😊") : ""
                             font.pixelSize: 80
-                            visible: parent.currentEmotionUrl.indexOf("file://") !== 0
+                            visible: !parent.live2dOn && parent.currentEmotionUrl.indexOf("file://") !== 0
                         }
                     }
 

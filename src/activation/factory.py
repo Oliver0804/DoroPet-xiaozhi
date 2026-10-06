@@ -13,9 +13,9 @@ def create_activation_ui(mode: str, activation_service, init_result: dict) -> An
     """
     normalized = (mode or "cli").lower()
     if normalized == "gui":
-        from src.ui.gui import GuiActivation
+        from src.ui.godot import GodotActivation
 
-        return GuiActivation(activation_service, init_result)
+        return GodotActivation(activation_service, init_result)
 
     # tui / cli / gpio：激活阶段用简单终端交互
     from src.ui.cli import CliActivation

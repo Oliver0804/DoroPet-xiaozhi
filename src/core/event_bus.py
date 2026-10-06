@@ -63,6 +63,7 @@ class Events:
     UI_ABORT_REQUEST = "ui_abort_request"  # 打断
     UI_SEND_TEXT = "ui_send_text"  # 发文本
     UI_QUIT_REQUEST = "ui_quit_request"  # 退出
+    DISCORD_WAV = "discord_wav"  # Discord 語音頻道的一段 wav
     UI_OPEN_SETTINGS = "ui_open_settings"  # 打开设置
     UI_TOGGLE_WINDOW = "ui_toggle_window"  # 显隐主窗口（GUI）
 

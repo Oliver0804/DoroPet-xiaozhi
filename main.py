@@ -157,102 +157,41 @@ if __name__ == "__main__":
             pass
 
         if args.mode == "gui":
-            # GUI 模式：使用 PySide6 + qasync
+            logger.info("介面使用 Godot")
+
+        if args.mode == "tui":
             try:
-                import qasync
-                from PySide6.QtWidgets import QApplication
+                import textual  # noqa: F401
             except ImportError as e:
                 logger.error(
-                    "GUI 模式需要 PySide6 + qasync，当前环境未安装。\n"
-                    "请用项目 venv 安装 GUI 依赖后重试：\n"
-                    "  uv sync --extra gui\n"
-                    "  # 或: pip install '.[gui]'\n"
-                    "然后：\n"
-                    "  uv run python main.py\n"
-                    "  # 或: .venv/bin/python main.py\n"
-                    "不要 GUI 时可用：\n"
-                    "  python main.py --mode cli\n"
-                    "  python main.py --mode tui   # 需 uv sync --extra tui\n"
+                    "TUI 模式需要 textual。请运行:\n"
+                    "  uv sync --extra tui\n"
+                    "  pip install '.[tui]'\n"
+                    "无屏/SSH 请继续用: python main.py --mode cli\n"
                     f"(原始错误: {e})"
                 )
                 sys.exit(1)
 
-            qt_app = QApplication.instance() or QApplication(sys.argv)
-            qt_app.setQuitOnLastWindowClosed(False)
+        # GUI / CLI / GPIO：標準 asyncio。SIGINT 請 TaskManager 關閉。
+        shutdown_state = {"requested": False}
 
-            loop = qasync.QEventLoop(qt_app)
-            asyncio.set_event_loop(loop)
-            logger.info("已创建 PySide6 + qasync 事件循环")
-
-            # 设置 SIGINT 信号处理 - 通过 TaskManager 请求关闭
-            shutdown_state = {"requested": False}
-
-            def handle_sigint(*_):
-                if shutdown_state["requested"]:
-                    return
-                shutdown_state["requested"] = True
-                logger.info("收到 SIGINT 信号，正在退出...")
-
-                # 通过 TaskManager 请求优雅关闭
-                try:
-                    if _container and _container.tasks:
-                        _container.tasks.request_shutdown()
-                    else:
-                        # 容器未就绪，直接退出 Qt
-                        if loop.is_running():
-                            loop.call_soon_threadsafe(qt_app.quit)
-                except Exception:
-                    qt_app.quit()
-
-            signal.signal(signal.SIGINT, handle_sigint)
-
+        def handle_sigint_cli(*_):
+            if shutdown_state["requested"]:
+                # 二次 Ctrl+C：硬退
+                logger.warning("再次收到 SIGINT，强制退出")
+                os._exit(130)
+            shutdown_state["requested"] = True
+            logger.info("收到 SIGINT 信号，正在退出...")
             try:
-                with loop:
-                    exit_code = loop.run_until_complete(
-                        start_app(args.mode, args.protocol, args.skip_activation)
-                    )
-            except RuntimeError as e:
-                # 捕获 qasync 的 "Event loop stopped before Future completed" 错误
-                if "Event loop stopped before Future completed" in str(e):
-                    logger.debug("事件循环已正常终止")
-                    exit_code = 0
-                else:
-                    raise
-        else:
-            # CLI / TUI / GPIO：标准 asyncio
-            if args.mode == "tui":
-                try:
-                    import textual  # noqa: F401
-                except ImportError as e:
-                    logger.error(
-                        "TUI 模式需要 textual。请运行:\n"
-                        "  uv sync --extra tui\n"
-                        "  pip install '.[tui]'\n"
-                        "无屏/SSH 请继续用: python main.py --mode cli\n"
-                        f"(原始错误: {e})"
-                    )
-                    sys.exit(1)
+                if _container and _container.tasks:
+                    _container.tasks.request_shutdown()
+            except Exception:
+                pass
 
-            # CLI / GPIO 模式：标准 asyncio；SIGINT 请求 TaskManager 关闭
-            shutdown_state = {"requested": False}
-
-            def handle_sigint_cli(*_):
-                if shutdown_state["requested"]:
-                    # 二次 Ctrl+C：硬退
-                    logger.warning("再次收到 SIGINT，强制退出")
-                    os._exit(130)
-                shutdown_state["requested"] = True
-                logger.info("收到 SIGINT 信号，正在退出...")
-                try:
-                    if _container and _container.tasks:
-                        _container.tasks.request_shutdown()
-                except Exception:
-                    pass
-
-            signal.signal(signal.SIGINT, handle_sigint_cli)
-            exit_code = asyncio.run(
-                start_app(args.mode, args.protocol, args.skip_activation)
-            )
+        signal.signal(signal.SIGINT, handle_sigint_cli)
+        exit_code = asyncio.run(
+            start_app(args.mode, args.protocol, args.skip_activation)
+        )
 
     except KeyboardInterrupt:
         logger.info("程序被用户中断")

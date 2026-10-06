@@ -16,13 +16,13 @@ class UiPresenter:
 
     STATE_TEXT_MAP = {
         DeviceState.IDLE: "待命",
-        DeviceState.LISTENING: "聆听中...",
-        DeviceState.SPEAKING: "说话中...",
+        DeviceState.LISTENING: "聆聽中…",
+        DeviceState.SPEAKING: "說話中…",
     }
 
     MUSIC_STATE_TEXT = {
         "playing": "正在播放: {song}",
-        "paused": "已暂停: {song}",
+        "paused": "已暫停: {song}",
         "stopped": "已停止: {song}",
         "completed": "播放完成: {song}",
     }
@@ -66,11 +66,12 @@ class UiPresenter:
 
     def show_device_state(self, state) -> None:
         if status_text := self.STATE_TEXT_MAP.get(state):
-            self.set_emotion("neutral")
+            # 不在聆听/说话时把表情打回 neutral。平台的 llm.emotion
+            # 要留在脸上，Live2D 才有表情可配合口型。
             self.set_status(status_text, connected=True)
 
     def show_network_error(self) -> None:
-        self.set_status("未连接", connected=False)
+        self.set_status("未連線", connected=False)
 
     def show_music_state(self, data) -> None:
         try:

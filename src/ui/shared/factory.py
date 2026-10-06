@@ -22,10 +22,10 @@ def create_viewport(
     normalized = (mode or "cli").lower()
 
     if normalized == "gui":
-        from src.ui.gui import GuiViewManager
+        from src.ui.godot import GodotViewManager
 
-        logger.debug("create_viewport: gui")
-        return GuiViewManager(event_bus=event_bus, task_manager=task_manager)
+        logger.info("create_viewport: godot")
+        return GodotViewManager(event_bus=event_bus, task_manager=task_manager)
 
     if normalized == "tui":
         from src.ui.tui import TuiViewManager

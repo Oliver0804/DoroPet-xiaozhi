@@ -33,7 +33,7 @@ class UIPlugin(Plugin):
         self.viewport: Optional["ViewPort"] = None
         self._presenter = UiPresenter()
         self._session: Optional[SessionActions] = None
-        self.is_first = True
+
 
     async def setup(self, ctx: "PluginContext", cmd: "PluginCommands") -> None:
         await super().setup(ctx, cmd)
@@ -53,6 +53,7 @@ class UIPlugin(Plugin):
         bus.on(Events.SYSTEM_NOTICE, self._on_system_notice)
         bus.on(Events.MUSIC_STATE_CHANGED, self._on_music_state_changed)
         bus.on(Events.MUSIC_LYRICS_UPDATE, self._on_music_lyrics_update)
+        bus.on(Events.DISCORD_WAV, self._on_discord_wav)
         logger.info("UIPlugin 已订阅音乐/网络/系统提示事件")
 
         if self._session:
@@ -64,13 +65,25 @@ class UIPlugin(Plugin):
                 name=f"ui:{self.mode}:start",
             )
 
+    async def _on_discord_wav(self, data=None) -> None:
+        if not isinstance(data, dict) or not data.get("wav_b64"):
+            return
+        from src.constants.constants import ListeningMode
+        from src.ui.godot.discord_audio import submit_wav
+
+        was_continuous = bool(self._session and self._session.auto_session_active)
+        try:
+            await submit_wav(self._cmd, str(data.get("wav_b64")), str(data.get("user_name", "")))
+        except Exception as e:
+            logger.error(f"Discord 語音送進小智失敗: {e}", exc_info=True)
+            return
+        if was_continuous:
+            await self._cmd.start_listening(ListeningMode.AUTO_STOP)
+
     async def on_incoming_json(self, message) -> None:
         self._presenter.show_protocol_message(message)
 
     async def on_device_state_changed(self, state) -> None:
-        if self.is_first:
-            self.is_first = False
-            return
         if not self.viewport:
             return
         if self._session:

@@ -78,6 +78,10 @@ class AudioCodec:
         self._encoded_callback: Callable | None = None
         self._audio_listeners: list[AudioListener] = []
         self._listeners_lock = threading.Lock()
+        # TTS 播出块（输出回调线程 → 口型）。只在拉到 TTS 时通知。
+        self._tts_pcm_listeners: list[Callable[[np.ndarray], None]] = []
+        self._tts_pcm_lock = threading.Lock()
+        self._tts_pcm_error_logged = False
 
         # 设备配置（初始化后填充）
         self.device_config: DeviceConfig | None = None
@@ -285,6 +289,7 @@ class AudioCodec:
 
         if tts is not None:
             self._duck_hold = _DUCK_HOLD_CHUNKS
+            self._notify_tts_pcm(tts)
         elif self._duck_hold > 0:
             self._duck_hold -= 1
 
@@ -358,6 +363,29 @@ class AudioCodec:
             if listener not in self._audio_listeners:
                 self._audio_listeners.append(listener)
                 logger.info(f"已添加音频监听器: {listener.__class__.__name__}")
+
+    def add_tts_pcm_listener(self, listener: Callable[[np.ndarray], None]) -> None:
+        """注册 TTS 播放块回调（输出回调线程，必须很快返回）."""
+        with self._tts_pcm_lock:
+            if listener not in self._tts_pcm_listeners:
+                self._tts_pcm_listeners.append(listener)
+
+    def remove_tts_pcm_listener(self, listener: Callable[[np.ndarray], None]) -> None:
+        """移除 TTS 播放块回调."""
+        with self._tts_pcm_lock:
+            if listener in self._tts_pcm_listeners:
+                self._tts_pcm_listeners.remove(listener)
+
+    def _notify_tts_pcm(self, pcm: np.ndarray) -> None:
+        with self._tts_pcm_lock:
+            listeners = list(self._tts_pcm_listeners)
+        for listener in listeners:
+            try:
+                listener(pcm)
+            except Exception:
+                if not self._tts_pcm_error_logged:
+                    self._tts_pcm_error_logged = True
+                    logger.warning("TTS 口型监听器失败", exc_info=True)
 
     def remove_audio_listener(self, listener: AudioListener):
         """移除音频监听器（线程安全）

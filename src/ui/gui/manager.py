@@ -5,6 +5,7 @@ from PySide6.QtCore import QObject, Slot
 from src.core.event_bus import EventBus, Events
 from src.core.task_manager import TaskManager
 from src.logging import get_logger
+from src.ui.gui.live2d.bridge import Live2DBridge
 from src.ui.gui.main_controller import MainWindowController
 from src.ui.gui.qml_host import QmlAppHost
 from src.ui.gui.services import TrayService
@@ -34,11 +35,13 @@ class GuiViewManager(QObject):
 
         self._bridge = EventBridge(event_bus, task_manager=self._tasks)
         self._host = QmlAppHost()
-        self._main = MainWindowController()
+        self._live2d = Live2DBridge()
+        self._main = MainWindowController(live2d=self._live2d)
         self._settings = SettingsController(event_bus, self._tasks, self._bridge)
         self._tray_service: TrayService | None = None
 
         self._event_bus.on(Events.UI_TOGGLE_WINDOW, self._on_toggle_window)
+        self._event_bus.on(Events.AUDIO_CODEC_CHANGED, self._on_audio_codec)
         logger.debug("GuiViewManager: 已订阅窗口切换事件")
 
     async def start(self, mode: str = "gui"):
@@ -56,11 +59,13 @@ class GuiViewManager(QObject):
                 "mainModel": self._main.main_model,
                 "settingsModel": self._settings.ensure_model(),
                 "emotionService": self._main.emotion_service,
+                "live2dBridge": self._live2d,
             }
         )
         self._host.load_main()
         # 冷启动只显示、不抢前台，避免 macOS 把其它全屏 App 的 Space 挤掉
         self._host.show_root(activate=False)
+        self._live2d.attach(self._host.root_window())
         self._setup_tray()
         self._main.set_neutral_emotion()
         logger.info("GuiViewManager: GUI 启动完成")
@@ -68,8 +73,10 @@ class GuiViewManager(QObject):
     async def close(self):
         logger.info("GuiViewManager: 正在关闭...")
         self._running = False
+        self._event_bus.off(Events.AUDIO_CODEC_CHANGED, self._on_audio_codec)
         if self._tray_service:
             self._tray_service.hide()
+        self._live2d.shutdown()
         self._host.shutdown()
         logger.info("GuiViewManager: 已关闭")
 
@@ -91,6 +98,10 @@ class GuiViewManager(QObject):
     async def _on_toggle_window(self, data=None):
         logger.debug("GuiViewManager: 收到窗口切换事件")
         self.toggle_window()
+
+    async def _on_audio_codec(self, codec=None):
+        """TTS 播出的 PCM 驱动 Live2D 口型."""
+        self._live2d.bind_codec(codec)
 
     # ----- ViewPort -----
 
